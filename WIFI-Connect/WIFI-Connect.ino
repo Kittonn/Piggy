@@ -1,19 +1,24 @@
-#include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>
+#include <FirebaseESP8266.h>
 
+// Config Wifi
 #define WIFI_SSID "Ohm"
 #define WIFI_PASSWORD "0877444232"
 
-#define serverName "https://firebase.google.com/docs/database/rest/retrieve-data"
-int i = 0;
-WiFiClient client;
-HTTPClient http;
+// Config Firebase
+#define FIREBASE_HOST "piggyapp-de095-default-rtdb.asia-southeast1.firebasedatabase.app"
+#define FIREBASE_AUTH "vNTWIn7zH8eq1tGDKZWbHe3vxpkeV77UIKiFzdeA"
+
+#define API_KEY "AIzaSyDcwiX5CQcMsAbpk_MXjeH2YyicqldmxOI"
+#define USER_EMAIL "kantinan@gmail.com"
+#define USER_PASSWORD "123456"
+
+FirebaseData fbdo;
 
 void setup() {
   Serial.begin(9600);
 
-  // connect to wifi.
+  WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   
   while (WiFi.status() != WL_CONNECTED) {
@@ -23,27 +28,14 @@ void setup() {
   Serial.println();
   Serial.print("Connect : ");
   Serial.println(WiFi.localIP());
+  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
 }
  
 void loop() {
-  if (WiFi.status() == WL_CONNECTED) {
-    String reqUrl = "https://piggypal-11dc6-default-rtdb.asia-southeast1.firebasedatabase.app";
-    // http.begin(client, reqUrl);
-    // int httpCode = http.GET();
-    // Serial.println(httpCode);
-    // Serial.println(http.getString());
-    // http.end();
-
-    if (!client.connect(reqUrl, 443)) {
-      Serial.println("connect Failed");
-    } else {
-      Serial.println("connect Done");
-      String url = "/Money.json";
-      Serial.print("Request URL : ");
-      Serial.println(url);
-
-      client.print(String("GET ") + reqUrl + url);
-    }
+  if(Firebase.ready()){
+    Serial.println("connected");
+    Serial.println(Firebase.get(fbdo, "/money"));
+    Serial.println(fbdo.to<int>());
   }
   delay(500);
 }
