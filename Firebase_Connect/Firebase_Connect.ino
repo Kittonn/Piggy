@@ -47,10 +47,11 @@ void writeData(int amount) {
 }
 
 void readData() {
-  if (Firebase.RTDB.getInt(&fbdo, "withdraw")) {
+  if (Firebase.RTDB.getInt(&fbdo, "withdraw/amount")) {
     if (fbdo.dataType() == "int"){
+      amountWithdraw = fbdo.intData()
       Serial.print("Withdraw => ");
-      Serial.println(fbdo.intData());
+      Serial.println(amountWithdraw);
     }
   }
 }
