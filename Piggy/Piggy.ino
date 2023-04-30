@@ -26,17 +26,22 @@ FirebaseConfig config;
 unsigned long sendDataPrevMillis = 0;
 bool signupOK = false;
 
-#define SERVO_PIN 23
-Servo servo;
-
 // Withdraw
 int withdraw_state;
+#define SERVOTEN_PIN 17
+#define SERVOFIVE_PIN 16
+#define SERVOTWO_PIN 5
+#define SERVOONE_PIN 18
+Servo servoTen;
+Servo servoFive;
+Servo servoTwo;
+Servo servoOne;
 
 // IR Sensor
-#define PIN_ten 5
-#define PIN_five 17
-#define PIN_two 16
-#define PIN_one 4
+#define PIN_ten 4
+#define PIN_five 36
+#define PIN_two 35
+#define PIN_one 34
 
 // Coin count
 int money; // Money In piggy
@@ -46,6 +51,12 @@ int twoCoin;
 int oneCoin;
 int deposit_state = 0;
 int lastDepositTime;
+
+int allCoin;
+
+// Debug
+int lastTime;
+int prevTime = 1000;
 
 // SetUp KeyPad and OLED
 #define i2c_Address 0x3c
@@ -87,23 +98,72 @@ void setup() {
   Serial.print("Local IP: ");
   Serial.println(WiFi.localIP());
   setUpFirebase();
-  setUpIR();
+  pinMode(PIN_ten, INPUT);
+  pinMode(PIN_five, INPUT);
+  pinMode(PIN_two, INPUT);
+  pinMode(PIN_one, INPUT);
   setUpKeyPad();
+  setUpServo();
 }
 
 void loop(){
-  if (Firebase.ready() && signupOK && (millis() - sendDataPrevMillis > 5000 || sendDataPrevMillis == 0)){
-    sendDataPrevMillis = millis();
-    writeData(money);
+  if(millis() - lastDepositTime > 500)
+  if(!deposit_state){
+    if(analogRead(PIN_ten) > 2000){
+      tenCoin++;
+      deposit_state = 1;
+      lastDepositTime = millis();
+      calculateMoney();
+    }else if(digitalRead(PIN_five)){
+      fiveCoin++;
+      deposit_state = 1;
+      lastDepositTime = millis();
+      calculateMoney();
+    }else if(digitalRead(PIN_two)){
+      twoCoin++;
+      deposit_state = 1;
+      lastDepositTime = millis();
+      calculateMoney();
+    }else if(digitalRead(PIN_one)){
+      oneCoin++;
+      deposit_state = 1; 
+      lastDepositTime = millis();
+      calculateMoney();
+    }
   }
-  deposit();
-  if(millis() - lastKeyPadTime > 10){
-    lastKeyPadTime = millis();
-    Numpad();
-    OLEDdisplay();
+  if(!digitalRead(PIN_ten) && !digitalRead(PIN_five) && !digitalRead(PIN_two) && !digitalRead(PIN_one)){
+    deposit_state = 0;
   }
-  withDraw(readData());
-  calculateMoney();
+  if(millis() - lastTime > prevTime || lastTime == 0){
+    lastTime = millis();
+    Serial.print("10 coin = ");
+    Serial.println(tenCoin);
+    Serial.print("5 coin = ");
+    Serial.println(fiveCoin);
+    Serial.print("2 coin = ");
+    Serial.println(twoCoin);
+    Serial.print("1 coin = ");
+    Serial.println(oneCoin);
+    Serial.println(digitalRead(PIN_ten));
+    Serial.println(digitalRead(PIN_five));
+    Serial.println(digitalRead(PIN_two));
+    Serial.println(digitalRead(PIN_one));
+    Serial.println("===================");
+    Serial.print("digital read 10 = ");
+    Serial.print(digitalRead(PIN_ten));
+    Serial.print(", analog read 10 = ");
+    Serial.println(analogRead(PIN_ten));
+  }
+  // if (signupOK && (millis() - sendDataPrevMillis > 500 || sendDataPrevMillis == 0)){
+  //   sendDataPrevMillis = millis();
+  //   writeData(money);
+  // }
+  // if(millis() - lastKeyPadTime > 5){
+  //   lastKeyPadTime = millis();
+  //   Numpad();
+  //   OLEDdisplay();
+  // }
+  //readData();
 }
 
 void setUpIR(){
@@ -117,23 +177,30 @@ void withDraw(int amount){
   if(amount > 0){
     withdraw_state = 1;
     while(withdraw_state){
-      while(amount > 10 && tenCoin){
+      while(amount >= 10 && tenCoin){
         amount -= 10;
         tenCoin--;
+        drop_tenCoin();
       }
-      while(amount > 5 && fiveCoin){
+      while(amount >= 5 && fiveCoin){
         amount -= 5;
         fiveCoin--;
+        drop_fiveCoin();
       }
-      while(amount > 2 && twoCoin){
+      while(amount >= 2 && twoCoin){
         amount -= 2;
         twoCoin--;
+        drop_twoCoin();
       }
-      while(amount > 1 && oneCoin){
+      while(amount >= 1 && oneCoin){
         amount -= 1;
         oneCoin--;
+        drop_oneCoin();
       }
+      calculateMoney();
+      //Firebase.RTDB.setInt(&fbdo, "money", money);
       withdraw_state = 0;
+      amountWithdraw = 0;
       if (Firebase.RTDB.setInt(&fbdo, "withdraw/amount", 0)) {
         Serial.println("WithDraw Success");
       }
@@ -142,16 +209,26 @@ void withDraw(int amount){
 }
 
 void writeData(int amount) {
-  if (Firebase.RTDB.setInt(&fbdo, "money", amount)) {
-    Serial.println("Set PASSED");
-  }
+  Firebase.RTDB.setInt(&fbdo, "money", amount);
+  // Firebase.RTDB.setInt(&fbdo, "coin/allcoin", allCoin);
+  // Firebase.RTDB.setInt(&fbdo, "coin/tencoin", tenCoin);
+  // Firebase.RTDB.setInt(&fbdo, "coin/fivecoin", fiveCoin);
+  // Firebase.RTDB.setInt(&fbdo, "coin/twocoin", twoCoin);
+  // Firebase.RTDB.setInt(&fbdo, "coin/onecoin", oneCoin);
 }
 
-int readData() {
+//flutter withdraw
+void readData() {
   if (Firebase.RTDB.getInt(&fbdo, "withdraw/amount")) {
     if (fbdo.dataType() == "int"){
       int amount = fbdo.intData();
-      return amount;
+      if(amount > 0){
+        amountWithdraw = amount;
+        withdraw_state = 1;
+        digits = 1;
+        OLEDdisplay();
+        withDraw(amountWithdraw);
+      }
     }
   }
 }
@@ -190,7 +267,12 @@ void OLEDdisplay() {
   if(withdraw_state){
     display.setCursor(1, 25);
     display.println("Process...");
-  }else{
+  }else if(amountWithdraw == 0){
+    display.setCursor(1, 25);
+    display.print("Balance:");
+    display.println(money);
+  }
+  else{
     display.setCursor(110-(digits * 9), 25);
     display.println(amountWithdraw);
   }
@@ -232,6 +314,7 @@ void Numpad() {
         Serial.println("Withdraw");
         withdraw_state = 1;
         digits = 1;
+        OLEDdisplay();
         withDraw(amountWithdraw);
       }
       if(amountWithdraw < 1000 && i < 10){
@@ -253,32 +336,92 @@ void Numpad() {
 }
 
 void deposit(){
-  if(millis() - lastDepositTime > 500){
-    if(!deposit_state){
-      if(digitalRead(PIN_ten)){
-        tenCoin++;
-        deposit_state = 1;
-        lastDepositTime = millis();
-      }else if(digitalRead(PIN_five)){
-        fiveCoin++;
-        deposit_state = 1;
-        lastDepositTime = millis();
-      }else if(digitalRead(PIN_two)){
-        twoCoin++;
-        deposit_state = 1;
-        lastDepositTime = millis();
-      }else if(digitalRead(PIN_one)){
-        oneCoin++;
-        deposit_state = 1; 
-        lastDepositTime = millis();
-      }
+  if(millis() - lastDepositTime > 500)
+  if(!deposit_state){
+    if(analogRead(PIN_ten) > 2000){
+      tenCoin++;
+      deposit_state = 1;
+      lastDepositTime = millis();
+      calculateMoney();
+    }else if(digitalRead(PIN_five)){
+      fiveCoin++;
+      deposit_state = 1;
+      lastDepositTime = millis();
+      calculateMoney();
+    }else if(digitalRead(PIN_two)){
+      twoCoin++;
+      deposit_state = 1;
+      lastDepositTime = millis();
+      calculateMoney();
+    }else if(digitalRead(PIN_one)){
+      oneCoin++;
+      deposit_state = 1; 
+      lastDepositTime = millis();
+      calculateMoney();
     }
   }
   if(!digitalRead(PIN_ten) && !digitalRead(PIN_five) && !digitalRead(PIN_two) && !digitalRead(PIN_one)){
     deposit_state = 0;
   }
+  if(millis() - lastTime > prevTime || lastTime == 0){
+    lastTime = millis();
+    Serial.print("10 coin = ");
+    Serial.println(tenCoin);
+    Serial.print("5 coin = ");
+    Serial.println(fiveCoin);
+    Serial.print("2 coin = ");
+    Serial.println(twoCoin);
+    Serial.print("1 coin = ");
+    Serial.println(oneCoin);
+    Serial.println(digitalRead(PIN_ten));
+    Serial.println(digitalRead(PIN_five));
+    Serial.println(digitalRead(PIN_two));
+    Serial.println(digitalRead(PIN_one));
+    Serial.println("===================");
+    Serial.print("digital read 10 = ");
+    Serial.print(digitalRead(PIN_ten));
+    Serial.print(", analog read 10 = ");
+    Serial.println(analogRead(PIN_ten));
+  }
 }
 
 void calculateMoney() {
   money = (tenCoin*10) + (fiveCoin*5) + (twoCoin*2) + oneCoin;
+  allCoin = tenCoin + fiveCoin + twoCoin + oneCoin;
+}
+
+void setUpServo() {
+  servoTen.attach(SERVOTEN_PIN);
+  servoFive.attach(SERVOFIVE_PIN);
+  servoTwo.attach(SERVOTWO_PIN);
+  servoOne.attach(SERVOONE_PIN);
+}
+
+void drop_tenCoin()
+{
+  servoFive.write(140);
+  delay(1000);
+  servoFive.write(60);
+  delay(500);
+}
+void drop_fiveCoin()
+{
+  servoTen.write(50);
+  delay(1000);
+  servoTen.write(130);
+  delay(500);
+}
+void drop_twoCoin()
+{
+  servoTwo.write(50);
+  delay(1000);
+  servoTwo.write(140);
+  delay(500);
+}
+void drop_oneCoin()
+{
+  servoOne.write(50);
+  delay(1000);
+  servoOne.write(140);
+  delay(500);
 }

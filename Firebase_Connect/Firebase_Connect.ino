@@ -3,6 +3,8 @@
 #include "addons/TokenHelper.h"
 #include "addons/RTDBHelper.h"
 
+#include <ESPDateTime.h>
+
 // Config Wifi
 #define WIFI_SSID "Ohm"
 #define WIFI_PASSWORD "0877444232"
@@ -14,12 +16,14 @@ FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
 
+FirebaseJson json;
 unsigned long sendDataPrevMillis = 0;
 bool signupOK = false;
 int money = 1000;
 
 void setup() {
   Serial.begin(9600);
+  WiFi.disconnect();
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
@@ -30,16 +34,28 @@ void setup() {
   Serial.print("Local IP: ");
   Serial.println(WiFi.localIP());
   setUpFirebase();
+  setupDateTime();
 }
 
 void loop(){
-  if (Firebase.ready() && signupOK && (millis() - sendDataPrevMillis > 5000 || sendDataPrevMillis == 0)){
+  if (Firebase.ready() && signupOK && (millis() - sendDataPrevMillis > 10000 || sendDataPrevMillis == 0)){
     sendDataPrevMillis = millis();
     writeData(money);
+    writeData_transaction();
     readData();
   }
 }
 
+void writeData_transaction() {
+  json.set("/type", "withdraw");
+  json.set("/amount", 70);
+  json.set("/time", DateTime.now());
+  String parentPath = "transaction/" + String(DateTime.now());
+  if (Firebase.RTDB.setJSON(&fbdo, parentPath.c_str(), &json)){
+    Serial.println(parentPath);
+    Serial.println("Set JSON PASSED");
+  }
+}
 void writeData(int amount) {
   if (Firebase.RTDB.setInt(&fbdo, "money", amount)) {
     Serial.println("Set PASSED");
@@ -49,7 +65,7 @@ void writeData(int amount) {
 void readData() {
   if (Firebase.RTDB.getInt(&fbdo, "withdraw/amount")) {
     if (fbdo.dataType() == "int"){
-      amountWithdraw = fbdo.intData()
+      int amountWithdraw = fbdo.intData();
       Serial.print("Withdraw => ");
       Serial.println(amountWithdraw);
     }
@@ -81,3 +97,10 @@ void setUpFirebase() {
   Firebase.reconnectWiFi(true);
 }
 
+void setupDateTime() {
+  DateTime.setTimeZone("KRAT");
+  DateTime.begin(10);
+  if (!DateTime.isTimeValid()) {
+    Serial.println("Failed to get time from server.");
+  }
+}

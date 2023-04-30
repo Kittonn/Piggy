@@ -1,9 +1,8 @@
-#define PIN_ten 39
+#define PIN_ten 4
 #define PIN_five 36
 #define PIN_two 35
 #define PIN_one 34
 
-int amount;
 int tenCoin;
 int fiveCoin;
 int twoCoin;
@@ -13,7 +12,7 @@ int deposit_state = 0;
 
 // debug
 int lastTime;
-int prevTime = 2000;
+int prevTime = 1000;
 
 int lastDepositTime;
 
@@ -28,15 +27,15 @@ void setup() {
 void loop() {
   if(millis() - lastDepositTime > 500)
   if(!deposit_state){
-    if(digitalRead(PIN_ten)){
+    if(analogRead(PIN_ten) > 2000){
       tenCoin++;
       deposit_state = 1;
       lastDepositTime = millis();
-    }else if(digitalRead(PIN_five)){
+    }else if(analogRead(PIN_five) > 2000){
       fiveCoin++;
       deposit_state = 1;
       lastDepositTime = millis();
-    }else if(digitalRead(PIN_two)){
+    }else if(analogRead(PIN_two) > 2000){
       twoCoin++;
       deposit_state = 1;
       lastDepositTime = millis();
@@ -63,6 +62,17 @@ void loop() {
     Serial.println(digitalRead(PIN_five));
     Serial.println(digitalRead(PIN_two));
     Serial.println(digitalRead(PIN_one));
+
+    // Serial.println("===================");
+    // Serial.print("digital read 10 = ");
+    // Serial.print(digitalRead(PIN_ten));
+    // Serial.print(", analog read 10 = ");
+    // Serial.println(analogRead(PIN_ten));
+
     Serial.println("===================");
+    Serial.print("digital read 5 = ");
+    Serial.print(digitalRead(PIN_five));
+    Serial.print(", analog read 5 = ");
+    Serial.println(analogRead(PIN_five));
   }
 }

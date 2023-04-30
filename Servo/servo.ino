@@ -1,42 +1,56 @@
-#include <ESP32Servo.h>
+#include <Servo.h>
 
-const uint8_t SERVO_PIN = 32;
-const uint8_t IR_PIN = 34;
-const uint8_t BTN_PIN = 33;
+#define SERVOTEN_PIN 17
+#define SERVOFIVE_PIN 16
+#define SERVOTWO_PIN 5
+#define SERVOONE_PIN 18
 
-Servo servo;
+Servo servoTen;
+Servo servoFive;
+Servo servoTwo;
+Servo servoOne;
 
-int current_state = 1;
-int last_state = 0;
-
-void setup()
-{
+void setup() {
   Serial.begin(9600);
-  pinMode(BTN_PIN, INPUT_PULLUP);
-  pinMode(IR_PIN, INPUT);
-  servo.attach(SERVO_PIN);
+  // attach the servos to the pins
+  servoTen.attach(SERVOTEN_PIN);
+  servoFive.attach(SERVOFIVE_PIN);
+  servoTwo.attach(SERVOTWO_PIN);
+  servoOne.attach(SERVOONE_PIN);
 }
 
-void loop()
-{
-  current_state = digitalRead(IR_PIN);
-  int button_state = digitalRead(BTN_PIN);
-
-  Serial.println(current_state);
-
-  if (button_state == LOW)
-  {
-    // drop_coin(50, 180); // 1 บาท
-    drop_coin(50, 140); // 2 บาท
-    // drop_coin(50, 140); // 5 บาท
-    // drop_coin(130,50); // 10 บาท
-  }
+void loop() {
+  drop_tenCoin();
+  drop_fiveCoin();
+  drop_twoCoin();
+  drop_oneCoin();
 }
 
-void drop_coin(int start_angle, int stop_angle)
+void drop_tenCoin()
 {
-  servo.write(start_angle);
+  servoFive.write(140);
   delay(1000);
-  servo.write(stop_angle);
+  servoFive.write(60);
+  delay(500);
+}
+void drop_fiveCoin()
+{
+  servoTen.write(50);
+  delay(1000);
+  servoTen.write(130);
+  delay(500);
+}
+void drop_twoCoin()
+{
+  servoTwo.write(40);
+  delay(1000);
+  servoTwo.write(140);
+  delay(500);
+}
+void drop_oneCoin()
+{
+  servoOne.write(50);
+  delay(1000);
+  servoOne.write(140);
   delay(500);
 }
