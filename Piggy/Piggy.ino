@@ -210,11 +210,11 @@ void withDraw(int amount){
 
 void writeData(int amount) {
   Firebase.RTDB.setInt(&fbdo, "money", amount);
-  // Firebase.RTDB.setInt(&fbdo, "coin/allcoin", allCoin);
-  // Firebase.RTDB.setInt(&fbdo, "coin/tencoin", tenCoin);
-  // Firebase.RTDB.setInt(&fbdo, "coin/fivecoin", fiveCoin);
-  // Firebase.RTDB.setInt(&fbdo, "coin/twocoin", twoCoin);
-  // Firebase.RTDB.setInt(&fbdo, "coin/onecoin", oneCoin);
+  Firebase.RTDB.setInt(&fbdo, "coin/allcoin", allCoin);
+  Firebase.RTDB.setInt(&fbdo, "coin/tencoin", tenCoin);
+  Firebase.RTDB.setInt(&fbdo, "coin/fivecoin", fiveCoin);
+  Firebase.RTDB.setInt(&fbdo, "coin/twocoin", twoCoin);
+  Firebase.RTDB.setInt(&fbdo, "coin/onecoin", oneCoin);
 }
 
 //flutter withdraw

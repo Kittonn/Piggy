@@ -1,9 +1,32 @@
+#include <WiFi.h>
+#include <Firebase_ESP_Client.h>
+#include "addons/TokenHelper.h"
+#include "addons/RTDBHelper.h"
+
 #include <ESP32Servo.h>
 #include <math.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SH110X.h>
+
+// Config Wifi
+// #define WIFI_SSID "Ohm"
+// #define WIFI_PASSWORD "0877444232"
+
+#define WIFI_SSID "teaw"
+#define WIFI_PASSWORD "88888888"
+
+// Config Firebase
+#define API_KEY "AIzaSyATMWWYyKi-G_v-r8B1IQW7UgKOEBZ9lbA"
+#define DATABASE_URL "https://piggypal-679da-default-rtdb.asia-southeast1.firebasedatabase.app/"
+
+FirebaseData fbdo;
+FirebaseAuth auth;
+FirebaseConfig config;
+
+bool signupOK = false;
+unsigned long readDataTime = 0;
 
 //Withdraw
 int withdraw_state;
@@ -65,6 +88,17 @@ byte loopcheck[] = {0, 0, 0};
 
 void setup() {
   Serial.begin(9600);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(500);
+  }
+  Serial.println();
+  Serial.print("Connected");
+  Serial.print("Local IP: ");
+  Serial.println(WiFi.localIP());
+  setUpFirebase();
+
   pinMode(PIN_ten, INPUT);
   pinMode(PIN_five, INPUT);
   pinMode(PIN_two, INPUT);
@@ -95,43 +129,31 @@ void loop() {
     if(analogRead(PIN_ten) > 2000){
       tenCoin++;
       deposit_state = 1;
+      money = (tenCoin*10) + (fiveCoin*5) + (twoCoin*2) + oneCoin;
+      Firebase.RTDB.setInt(&fbdo, "money", money);
       lastDepositTime = millis();
-    }else if(analogRead(PIN_five) > 2000){
+    }else if(analogRead(PIN_five) > 1900){
       fiveCoin++;
       deposit_state = 1;
+      money = (tenCoin*10) + (fiveCoin*5) + (twoCoin*2) + oneCoin;
+      Firebase.RTDB.setInt(&fbdo, "money", money);
       lastDepositTime = millis();
     }else if(analogRead(PIN_two) > 700){
       twoCoin++;
       deposit_state = 1;
+      money = (tenCoin*10) + (fiveCoin*5) + (twoCoin*2) + oneCoin;
+      Firebase.RTDB.setInt(&fbdo, "money", money);
       lastDepositTime = millis();
-    }else if(analogRead(PIN_one) > 500){
+    }else if(analogRead(PIN_one) > 550){
       oneCoin++;
-      deposit_state = 1; 
+      deposit_state = 1;
+      money = (tenCoin*10) + (fiveCoin*5) + (twoCoin*2) + oneCoin;
+      Firebase.RTDB.setInt(&fbdo, "money", money);
       lastDepositTime = millis();
     }
   }
   if(!digitalRead(PIN_ten) && !digitalRead(PIN_five) && !digitalRead(PIN_two) && !digitalRead(PIN_one)){
     deposit_state = 0;
-  }
-  if(millis() - lastTime > prevTime || lastTime == 0){
-    lastTime = millis();
-    // Serial.print("10 coin = ");
-    // Serial.println(tenCoin);
-    // Serial.print("5 coin = ");
-    // Serial.println(fiveCoin);
-    // Serial.print("2 coin = ");
-    // Serial.println(twoCoin);
-    // Serial.print("1 coin = ");
-    // Serial.println(oneCoin);
-    // Serial.println(digitalRead(PIN_ten));
-    // Serial.println(digitalRead(PIN_five));
-    // Serial.println(digitalRead(PIN_two));
-    // Serial.println(digitalRead(PIN_one));
-    // Serial.println("===================");
-    // Serial.print("digital read 2 = ");
-    // Serial.print(digitalRead(PIN_two));
-    // Serial.print(", analog read 2 = ");
-    // Serial.println(analogRead(PIN_two));
   }
   // Calculate Money
   money = (tenCoin*10) + (fiveCoin*5) + (twoCoin*2) + oneCoin;
@@ -191,6 +213,7 @@ void loop() {
     }
   }
   OLEDdisplay();
+  readData();
 }
 
 void drop_tenCoin()
@@ -246,8 +269,11 @@ void withDraw(int amount){
         oneCoin--;
         drop_oneCoin();
       }
+      money = (tenCoin*10) + (fiveCoin*5) + (twoCoin*2) + oneCoin;
+      Firebase.RTDB.setInt(&fbdo, "money", money);
       withdraw_state = 0;
       amountWithdraw = 0;
+      Firebase.RTDB.setInt(&fbdo, "withdraw/amount", 0);
     }
   }
 }
@@ -269,4 +295,45 @@ void OLEDdisplay() {
     display.println(amountWithdraw);
   }
   display.display();
+}
+
+void setUpFirebase() {
+  config.api_key = API_KEY;
+  config.database_url = DATABASE_URL;
+  if(Firebase.signUp(&config, &auth, "", "")) {
+    Serial.println("signUp OK");
+    signupOK = true;
+  }else{
+    Serial.println("Failed");
+  }
+  config.token_status_callback = tokenStatusCallback;
+  Firebase.begin(&config, &auth);
+  Firebase.reconnectWiFi(true);
+}
+
+void readData() {
+  if(millis() - readDataTime > 11000){
+    readDataTime = millis();
+    if (Firebase.RTDB.getInt(&fbdo, "withdraw/amount")) {
+      if (fbdo.dataType() == "int"){
+        int amount = fbdo.intData();
+        if(amount > 0){
+          amountWithdraw = amount;
+          withdraw_state = 1;
+          digits = 1;
+          OLEDdisplay();
+          withDraw(amountWithdraw);
+        }
+      }
+    }
+  }
+}
+
+void writeData(int amount) {
+  Firebase.RTDB.setInt(&fbdo, "money", amount);
+  // Firebase.RTDB.setInt(&fbdo, "coin/allcoin", allCoin);
+  // Firebase.RTDB.setInt(&fbdo, "coin/tencoin", tenCoin);
+  // Firebase.RTDB.setInt(&fbdo, "coin/fivecoin", fiveCoin);
+  // Firebase.RTDB.setInt(&fbdo, "coin/twocoin", twoCoin);
+  // Firebase.RTDB.setInt(&fbdo, "coin/onecoin", oneCoin);
 }
